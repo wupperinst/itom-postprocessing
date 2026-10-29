@@ -5,7 +5,6 @@ indicators (production, energy demand, investments, emissions, materials, costs)
 spatially (location -> state -> country -> Europe) and writes them in a human-readable wide format
 (one column per year) to Excel.
 
-The indicator logic follows section 7.99 of the R script `OutputAnalyzer_AKmod_v1_8.R`.
 
 ## Setup
 
