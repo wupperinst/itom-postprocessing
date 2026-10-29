@@ -1,0 +1,211 @@
+# Configuration for postprocess_steel_model_output.py
+# Relative paths are resolved against the folder that contains this file.
+
+# Which results are written (one or both):
+#   indicator_sheets = <scenario>_postprocessed_data.xlsx, one sheet per indicator (country_*, total_* ...)
+#   iamc             = <scenario>_IAMC.xlsx, one sheet per variable: Model, Scenario, Region, Name, Unit, <years>
+# Can be overridden on the command line:  --formats iamc
+output_formats: [indicator_sheets, iamc]
+
+# Name of the scenario = sub-folder of `model_data_dir`. The csv files in that
+# folder must be called <scenario>_<Variable>.csv (e.g. <scenario>_LocalProduction.csv).
+scenario: ITOM_Steel_DGS-Auto_Core_261021
+
+paths:
+  model_data_dir: Model_data
+  # Workbook with the sheets "Region_Grouping" (region grouping / dummy location split)
+  # and "Parameters" (product and technology lists).
+  region_grouping_file: Model_data/ITOM-Steel_region-grouping.xlsx
+  output_dir: Output
+  # Result: <output_dir>/<scenario>_postprocessed_data.xlsx
+
+# Capacity-to-activity factor. Model flows (production, use, emissions) are divided by it.
+# The R code hard-codes 5 (`cap2act=5` and several `/5`).
+cap2act: 5
+
+# GJ per t of coke; coke is the only product converted from Mt to PJ (31.58 PJ/Mt).
+coking_coal_energy_factor: 31.58
+
+# Year columns of the result sheets. Years missing in the model output are filled with 0.
+years: [2020, 2025, 2030, 2035, 2040, 2045, 2050]
+investment_years: [2035, 2040, 2045, 2050]   # capacity and capital investments
+ccs_years: [2040, 2045, 2050]                # captured / stored emissions
+
+# Remove rows that are 0 in every year. FALSE = same as the R code, which e.g. lists
+# countries with a 0 % dummy-location share (DK, EE, ...) with only zeros.
+drop_all_zero_rows: false
+
+region_grouping:
+  sheet: Region_Grouping
+  # Column names in the sheet. The R code reads these from region_grouping_capacity_share.csv
+  # as STATE / Country / Region_steel / share_country_in_region_steel_dummy_CS_capacity.
+  state_column: STATE
+  country_column: Country
+  region_column: Region
+  dummy_share_column: region_share_dummy_CS_capacity
+
+parameters:
+  sheet: Parameters
+
+# --- Technology lists ---------------------------------------------------------------
+# NOT part of the "Parameters" sheet of ITOM-Steel_region-grouping.xlsx, but needed for the
+# investment / capacity sheets. Provisional lists, please confirm. If a list is left empty
+# (null), the script stops with an error.
+#   cs_*: technologies that produce crude (liquid) steel
+#   fs_*: technologies that produce finished-steel products (DEM_* products)
+cs_production_technologies:
+  - basic_oxygen_furnace
+  - basic_oxygen_furnace_retrofit
+  - electric_arc_furnace
+  - molten_oxide_electrolysis
+fs_production_technologies:
+  - bar_mill
+  - wire_rod_mill
+  - railway_track_mill
+  - seamless_tube_mill
+  - welded_tube_mill
+  - structural_mill
+  - heavy_plate_mill
+  - hot_rolled_coil_mill
+  - cold_rolled_coil_coated_mill
+  - cold_rolled_coil_tinned_mill
+  - steel_casting
+  - iron_casting
+
+# Added to iron_production_technologies + cs_production_technologies (TotalCapacity, NewCapacity)
+capacity_extra_technologies:
+  - direct_reduction_co2_capture
+
+# Added to iron_/cs_/fs_production_technologies (LocalCapitalInvestment)
+investment_extra_technologies:
+  - direct_reduction_co2_capture
+  - smelter
+  - biomass_gasification
+  - cold_rolled_coil_mill
+  - cold_rolled_coil_galvanized_mill
+  - heat_furnace_rolling
+  - heat_furnace_rolling_hybrid
+  - heat_furnace_CRC_elec
+
+# --- Emissions ----------------------------------------------------------------------
+captured_emissions_technologies:
+  - direct_reduction_co2_capture
+  - blast_furnace_CO2_capture
+
+# CO2 storage products -> cluster name in the sheet "captured_emissions_by_cluster"
+co2_storage_clusters:
+  CO2_TS_service_North_capped: North
+  CO2_TS_service_South_capped: South
+  CO2_TS_service_Onshore_capped: Onshore
+  CO2_TS_service_uncapped: Limit
+
+# --- Materials ----------------------------------------------------------------------
+material_products:
+  - iron_ore
+  - BF-pellets
+  - DR-pellets
+  - HBI_H2_import
+  - HBI_NG_import
+  - scrap_0
+  - scrap_01
+  - scrap_02
+  - scrap_03
+  - scrap_04
+scrap_products: [scrap_0, scrap_01, scrap_02, scrap_03, scrap_04]   # -> "scrap_aggregate"
+hbi_intra_eu_products: [HBI_for_BOF, HBI_for_EAF]                    # -> "HBI_intra-EU"
+slag_products: [BF-slag, SAF-slag]
+
+# --- Marginal production cost (shadow prices of PB9_ProductBalance) ---------------------
+marginal_cost_products:
+  - Final_DEM_bar_04
+  - Final_DEM_hot_rolled_coil_01
+
+# --- Rounding -------------------------------------------------------------------------
+# Decimals per sheet, copied from the R code (section 7.99). Note that a few sheets are
+# rounded to whole numbers there (steel production in Mt, country capacities, emissions).
+rounding_digits:
+  total_steel_production: 0
+  country_steel_production: 0
+  total_steel_production_agg: 2
+  country_steel_production_agg: 2
+  total_energy_consumption: 2
+  country_energy_consumption: 2
+  total_iron_production: 2
+  country_iron_production: 2
+  total_capacity_investments: 2
+  total_capital_investments: 0
+  country_capital_investment: 2
+  total_installed_capacities: 2
+  country_installed_capacities: 0
+  total_emissions: 0
+  captured_emissions_by_route: 2
+  captured_emissions_by_cluster: 2
+  total_material_consumption: 2
+  country_material_consumption: 2
+  country_mat_consumption_agg: 2
+  marginal_production_cost: 0
+  total_discounted_cost: 2
+  country_slag_production: 2
+
+# --- IAMC format ------------------------------------------------------------------------
+# One sheet per variable. Region = country (own column), Name = <Variable> | <sector> | <detail>, e.g.
+#   Production | Industry | Iron and Steel | Iron | Blastfurnace
+#   Final Energy | Industry | Iron and Steel | Electricity
+# Variables so far, all per country: Production (iron and steel in one table), Final Energy and
+# Material Consumption.
+iamc:
+  model: ITOM-Steel
+  sector: [Industry, Iron and Steel]
+  units:
+    production: Mt/yr
+    final_energy: PJ/yr
+    material_consumption: Mt/yr
+  decimals: 2
+  drop_all_zero_rows: true      # e.g. countries without steel production
+
+  # Product -> "<subsector> | <route>". Products with the same entry are summed.
+  # Steel products are taken from LocalProduction, iron products from LocalProductionByMode.
+  # Every product of iron_products and LS_products that occurs in the output needs an entry. Use
+  # `route_by_mode` instead of `route` to split a product by the mode of operation (this is where the
+  # energy carrier of the DRI routes comes from); then every mode that occurs needs an entry.
+  production_mapping:
+    hot_metal_bf:         {subsector: Iron,  route: Blastfurnace}
+    DRI_for_EAF:
+      subsector: Iron
+      route_by_mode: {DRI_EAF_H2: DRI_H2, DRI_EAF_NG: DRI_NG, DRI_EAF_NG_H2: DRI_NG_H2, DRI_EAF_Bio: DRI_Bio}
+    DRI_for_BOF:
+      subsector: Iron
+      route_by_mode: {DRI_BOF_H2: DRI_H2, DRI_BOF_NG: DRI_NG, DRI_BOF_NG_H2: DRI_NG_H2, DRI_BOF_Bio: DRI_Bio}
+    iron_plate_for_EAF:   {subsector: Iron,  route: Iron_plate}
+    liquid_steel_BOF:     {subsector: Steel, route: BOF}
+    liquid_steel_DRI_EAF: {subsector: Steel, route: EAF_DRI}
+    liquid_steel_HBI_EAF: {subsector: Steel, route: EAF_HBI}
+    liquid_steel_IP_EAF:  {subsector: Steel, route: EAF_Iron_plate}
+    liquid_steel_scrap_0:   {subsector: Steel, route: EAF_Scrap}
+    liquid_steel_scrap_011: {subsector: Steel, route: EAF_Scrap}
+    liquid_steel_scrap_022: {subsector: Steel, route: EAF_Scrap}
+    liquid_steel_scrap_033: {subsector: Steel, route: EAF_Scrap}
+    liquid_steel_scrap_044: {subsector: Steel, route: EAF_Scrap}
+    liquid_steel_MOE:     {subsector: Steel, route: MOE}
+
+  # Energy product (as in the sheet country_energy_consumption) -> energy carrier
+  energy_carrier_mapping:
+    coking_coal: Coal
+    PCI_coal: Coal
+    coke: Coal                  # imported coke, in PJ
+    natural_gas: Gas
+    biomass: Biomass
+    charcoal: Biomass
+    electricity: Electricity    # taken from the grid (consumption minus autoproduction)
+    hydrogen: Hydrogen
+
+  # Material (as in the sheet country_mat_consumption_agg) -> name. "scrap_aggregate" is the sum of
+  # scrap_products, "HBI_intra-EU" the sum of hbi_intra_eu_products.
+  material_mapping:
+    iron_ore: Iron_ore
+    BF-pellets: Pellets_BF
+    DR-pellets: Pellets_DR
+    HBI_H2_import: HBI_import_H2
+    HBI_NG_import: HBI_import_NG
+    scrap_aggregate: Scrap
+    HBI_intra-EU: HBI_intra_EU
