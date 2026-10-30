@@ -81,12 +81,7 @@ entry in an IAMC mapping, the script stops and names the missing entry.
 - Europe totals for production, emissions and materials only include `LOCATION == "Europe"`
   (a deliberate deviation from the R code).
 
-## Open points
 
-- `cs_production_technologies` and `fs_production_technologies` are provisional and need confirmation.
-- Some technologies with investment appear in no list and are missing from the capital investment sheet
-  (e.g. `process_gas_heater`, blast furnace relining, `hot_briquetting`).
-- The `cap2act = 5` value comes from the R code and has not been checked against the model run.
 
 ## Tests
 
