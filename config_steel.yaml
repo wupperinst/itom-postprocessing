@@ -138,7 +138,9 @@ rounding_digits:
   total_installed_capacities: 2
   country_installed_capacities: 0
   total_emissions: 0
+  country_emissions: 2
   captured_emissions_by_route: 2
+  country_captured_emissions_by_technology: 2
   captured_emissions_by_cluster: 2
   total_material_consumption: 2
   country_material_consumption: 2
@@ -160,6 +162,8 @@ iamc:
     production: Mt/yr
     final_energy: PJ/yr
     material_consumption: Mt/yr
+    carbon_capture: Mt CO2/yr
+    emissions: Mt CO2/yr
   decimals: 2
   drop_all_zero_rows: true      # e.g. countries without steel production
 
@@ -209,3 +213,8 @@ iamc:
     HBI_NG_import: HBI_import_NG
     scrap_aggregate: Scrap
     HBI_intra-EU: HBI_intra_EU
+
+  # Capture technology (captured_emissions_technologies) -> name of the Carbon Capture variable
+  capture_mapping:
+    blast_furnace_CO2_capture: Blastfurnace_CCS
+    direct_reduction_co2_capture: DRI_CCS

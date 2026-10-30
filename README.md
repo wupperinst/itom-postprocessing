@@ -54,8 +54,8 @@ Written to `Output/` (`paths.output_dir`):
 
 | Format | File | Content |
 |---|---|---|
-| `indicator_sheets` | `<scenario>_postprocessed_data.xlsx` | 22 sheets, one per indicator (`total_*`, `country_*`), same order as in the R code |
-| `iamc` | `<scenario>_IAMC.xlsx` | One sheet per variable: **Production**, **Final Energy**, **Material Consumption** |
+| `indicator_sheets` | `<scenario>_postprocessed_data.xlsx` | 24 sheets, one per indicator (`total_*`, `country_*`), in the order of the R code (plus `country_emissions` and `country_captured_emissions_by_technology`) |
+| `iamc` | `<scenario>_IAMC.xlsx` | One sheet per variable: **Production**, **Final Energy**, **Material Consumption**, **Carbon Capture**, **CO2 Emissions** |
 
 IAMC columns: `Model | Scenario | Region | Name | Unit | <years>`. Region is the country. Name has the form
 `<Variable> | Industry | Iron and Steel | <detail>`, e.g. `Production | Industry | Iron and Steel | Iron | Blastfurnace`.

@@ -36,8 +36,8 @@ SHEET_ORDER = [
     "country_steel_production_agg", "total_energy_consumption", "country_energy_consumption",
     "total_iron_production", "country_iron_production", "total_capacity_investments",
     "total_capital_investments", "country_capital_investment", "total_installed_capacities",
-    "country_installed_capacities", "total_emissions", "captured_emissions_by_route",
-    "captured_emissions_by_cluster", "total_material_consumption", "country_material_consumption",
+    "country_installed_capacities", "total_emissions", "country_emissions", "captured_emissions_by_route",
+    "country_captured_emissions_by_technology", "captured_emissions_by_cluster", "total_material_consumption", "country_material_consumption",
     "country_mat_consumption_agg", "marginal_production_cost", "total_discounted_cost",
     "country_slag_production",
 ]
@@ -442,6 +442,17 @@ sheets["total_emissions"] = finish_sheet(
     .assign(Sector="Steel", Region="Europe", Variable="Annual Emissions", Unit="Mt_CO2/a"),
     ["Sector", "Region", "Variable", "Unit"], years_all, "total_emissions")
 
+# CO2 emissions per country. The sum over all locations equals the model variable AnnualEmissions
+country_emissions = C("LocalTechnologyEmission")
+country_emissions = country_emissions[country_emissions["EMISSION"] == "CO2"]
+country_emissions = country_emissions.assign(value=country_emissions["VALUE"] / cap2act)
+d = country_emissions
+sheets["country_emissions"] = finish_sheet(
+    to_wide(d.assign(value=rounded(d["value"], "country_emissions")).rename(columns={"LOCATION": "Country"}),
+            ["Country"], "country_emissions")
+    .assign(Sector="Steel", Variable="Annual Emissions", Unit="Mt_CO2/a"),
+    ["Sector", "Country", "Variable", "Unit"], years_all, "country_emissions", ["Country"])
+
 d = E("LocalProductionByMode")
 d = d[d["TECHNOLOGY"].isin(cfg["captured_emissions_technologies"]) & (d["LOCATION"] == "Europe")]
 sheets["captured_emissions_by_route"] = finish_sheet(
@@ -449,6 +460,19 @@ sheets["captured_emissions_by_route"] = finish_sheet(
             .rename(columns={"MODE_OF_OPERATION": "Route"}), ["Route"], "captured_emissions_by_route")
     .assign(Sector="Steel", Region="Europe", Variable="Captured Emissions", Unit="Mt_CO2/a"),
     ["Sector", "Region", "Variable", "Route", "Unit"], years_ccs, "captured_emissions_by_route", ["Route"])
+
+# Same figures per country and capture technology (the captured CO2 is the production of the capture technology)
+captured_by_technology = C("LocalProductionByMode")
+captured_by_technology = captured_by_technology[captured_by_technology["TECHNOLOGY"].isin(cfg["captured_emissions_technologies"])]
+captured_by_technology = captured_by_technology.assign(value=captured_by_technology["VALUE"] / cap2act)
+d = captured_by_technology
+sheets["country_captured_emissions_by_technology"] = finish_sheet(
+    to_wide(d.assign(value=rounded(d["value"], "country_captured_emissions_by_technology"))
+            .rename(columns={"LOCATION": "Country", "TECHNOLOGY": "Technology"}),
+            ["Country", "Technology"], "country_captured_emissions_by_technology")
+    .assign(Sector="Steel", Variable="Captured Emissions", Unit="Mt_CO2/a"),
+    ["Sector", "Country", "Variable", "Technology", "Unit"], years_ccs,
+    "country_captured_emissions_by_technology", ["Country", "Technology"])
 
 # CO2 storage is a region-level variable (no location)
 co2_clusters = pd.DataFrame({"PRODUCT": list(cfg["co2_storage_clusters"]),
@@ -603,11 +627,23 @@ def build_iamc():
                 .groupby(["YEAR", "LOCATION", "PRODUCT"], as_index=False)["value"].sum())
     material = map_products(country_rows(material, "material consumption"), iamc["material_mapping"], "material")
 
+    # Captured CO2 per capture technology, the figures of the sheet country_captured_emissions_by_technology,
+    # without rounding. map_products reads the mapping key from PRODUCT, so the technology is used as such.
+    capture = captured_by_technology.rename(columns={"PRODUCT": "CO2_PRODUCT", "TECHNOLOGY": "PRODUCT"})
+    capture = map_products(country_rows(capture, "carbon capture"), iamc["capture_mapping"], "capture")
+
+    # CO2 emissions: the figures of the sheet country_emissions, without rounding. No detail level.
+    emissions = country_rows(country_emissions[["YEAR", "LOCATION", "value"]], "emissions").assign(detail="")
+
     tables = {}
     for variable, data, unit in [("Production", production, iamc["units"]["production"]),
                                  ("Final Energy", energy, iamc["units"]["final_energy"]),
-                                 ("Material Consumption", material, iamc["units"]["material_consumption"])]:
-        data = data.assign(Name=variable + " | " + sector + " | " + data["detail"]).rename(columns={"LOCATION": "Region"})
+                                 ("Material Consumption", material, iamc["units"]["material_consumption"]),
+                                 ("Carbon Capture", capture, iamc["units"]["carbon_capture"]),
+                                 ("CO2 Emissions", emissions, iamc["units"]["emissions"])]:
+        # (empty detail: the name ends with the sector)
+        data = data.assign(Name=variable + " | " + sector + np.where(data["detail"] == "", "", " | " + data["detail"]))
+        data = data.rename(columns={"LOCATION": "Region"})
         wide = (data.groupby(["Region", "Name", "YEAR"])["value"].sum().unstack("YEAR")
                 .reindex(columns=years_all).fillna(0.0).round(iamc["decimals"]))
         if iamc["drop_all_zero_rows"]:
